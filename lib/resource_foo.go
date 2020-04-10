@@ -54,6 +54,7 @@ func resourceFoo() *schema.Resource {
 						"city": {
 							Type:     schema.TypeString,
 							Optional: true,
+							Default:  "",
 						},
 					},
 				},
