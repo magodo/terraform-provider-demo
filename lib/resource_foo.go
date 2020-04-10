@@ -1,7 +1,13 @@
 package lib
 
 import (
+	"log"
+	"reflect"
+	"strings"
+	"unsafe"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 func resourceFoo() *schema.Resource {
@@ -56,6 +62,10 @@ func resourceFoo() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
+						"hidden": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 					},
 				},
 			},
@@ -83,7 +93,7 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	param.Contact = expandContact(d.Get("contact").([]interface{}))
-	param.Addrs = expandAddrs(d.Get("addr").(*schema.Set).List())
+	param.Addrs = expandAddrs(d, d.Get("addr").(*schema.Set).List())
 	//param.Addrs = expandAddrs(d.Get("addr").([]interface{}))
 
 	resp, err := client.CreateOrUpdate(param)
@@ -147,7 +157,7 @@ func expandContact(contact []interface{}) *ContactFoo {
 	return output
 }
 
-func expandAddrs(addrs []interface{}) *[]*Addr {
+func expandAddrs(d *schema.ResourceData, addrs []interface{}) *[]*Addr {
 	result := make([]*Addr, 0)
 	for _, v := range addrs {
 		if v != nil {
@@ -158,6 +168,8 @@ func expandAddrs(addrs []interface{}) *[]*Addr {
 			if city, ok := m["city"].(string); ok {
 				addr.City = &city
 			}
+			hidden := getHiddenAttribute(*addr.Country, d)
+			log.Printf("[WARN] hidden: %s; city: %s; country: %s", hidden, *addr.City, *addr.Country)
 			result = append(result, addr)
 		}
 	}
@@ -256,10 +268,42 @@ func flattenAddrs(input *[]*Addr) []interface{} {
 			}
 			if v.City != nil {
 				m["city"] = *v.City
+				m["hidden"] = *v.City
 			}
 			output = append(output, m)
 		}
 	}
 
 	return output
+}
+
+func getHiddenAttribute(country string, d *schema.ResourceData) string {
+	rs := reflect.ValueOf(d).Elem()
+	rf := rs.FieldByName("state")
+	rf = reflect.NewAt(rf.Type(), unsafe.Pointer(rf.UnsafeAddr())).Elem()
+	attr := rf.Interface().(*terraform.InstanceState).Attributes
+	for k, v := range attr {
+		if strings.HasSuffix(k, "country") && v == country {
+			return attr[strings.Replace(k, "country", "hidden", 1)]
+		}
+	}
+
+	//     for _, rs := range s.RootModule().Resources {
+	//         if rs.Type != "azurerm_linux_virtual_machine_scale_set" {
+	//             continue
+	//         }
+	//
+	//         resourceGroup := rs.Primary.Attributes["resource_group_name"]
+	//         name := rs.Primary.Attributes["name"]
+	//
+	//         resp, err := client.Get(ctx, resourceGroup, name)
+	//         if err != nil {
+	//             if !utils.ResponseWasNotFound(resp.Response) {
+	//                 return err
+	//             }
+	//         }
+	//
+	//         return nil
+	//     }
+	return ""
 }

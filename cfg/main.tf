@@ -2,9 +2,11 @@ resource "demo_resource_foo" "example" {
   name = "magodo"
   addr {
     country = "China"
+    city = "aaa"
   }
   addr {
     country = "US"
+    city = "xxx"
   }
 #   addr {
 #     country = "Germany"

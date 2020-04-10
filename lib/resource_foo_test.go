@@ -69,6 +69,7 @@ resource "demo_resource_foo" "foo" {
   name = "abc"
   addr {
     country = "China"
+    city = "aaa"
   }
   addr {
     country = "UK"
@@ -83,9 +84,10 @@ resource "demo_resource_foo" "foo" {
   name = "abc"
   addr {
     country = "China"
+    city = "bbb"
   }
   addr {
-    country = "US"
+    country = "UK"
   }
 }
 `)
