@@ -67,13 +67,14 @@ func testAccExampleService_before_update() string {
 	return fmt.Sprintf(`
 resource "demo_resource_foo" "foo" {
   name = "abc"
-  addr {
-    country = "China"
-    city = "aaa"
+  contact {
+    github = demo_resource_bar.bar.github
   }
-  addr {
-    country = "UK"
-  }
+}
+
+resource "demo_resource_bar" "bar" {
+  name = "xxx"
+  github = "bar_github"
 }
 `)
 }
@@ -82,13 +83,6 @@ func testAccExampleService_after_update() string {
 	return fmt.Sprintf(`
 resource "demo_resource_foo" "foo" {
   name = "abc"
-  addr {
-    country = "China"
-    city = "bbb"
-  }
-  addr {
-    country = "UK"
-  }
 }
 `)
 }
