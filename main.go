@@ -1,8 +1,9 @@
 package main
 
 import (
-	"foo/lib"
 	"log"
+
+	"github.com/magodo/terraform-provider-demo/lib"
 
 	"github.com/hashicorp/terraform-plugin-sdk/plugin"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
