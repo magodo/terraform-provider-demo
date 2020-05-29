@@ -19,6 +19,10 @@ func resourceBar() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"phone": {
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -36,6 +40,9 @@ func resourceBarCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 
 	if github, ok := d.GetOk("github"); ok {
 		param.Github = StringPtr(github.(string))
+	}
+	if phone, ok := d.GetOk("phone"); ok {
+		param.Phone = IntPtr(phone.(int))
 	}
 
 	resp, err := client.CreateOrUpdate(param)
@@ -55,7 +62,8 @@ func resourceBarRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	d.Set("name", resp.Name)
-	d.Set("age", resp.Github)
+	d.Set("github", resp.Github)
+	d.Set("phone", resp.Phone)
 
 	return nil
 }

@@ -1,16 +1,22 @@
 resource "demo_resource_foo" "example" {
   name = "magodo"
-  addr {
-    country = "China"
-  }
-  addr {
-    country = "US"
-  }
-#   addr {
-#     country = "Germany"
-#     city = "Wetzla"
-#   }
+  job  = "doctor2"
+  #   addr {
+  #     country = "Germany"
+  #     city = "Wetzla"
+  #   }
 }
+
+resource "demo_resource_bar" "example" {
+  name   = "magodo"
+  github = demo_resource_foo.example.output_job
+  phone  = 2
+  #   addr {
+  #     country = "Germany"
+  #     city = "Wetzla"
+  #   }
+}
+
 
 # resource "demo_resource_bar" "example" {
 #   name = "kinoko"

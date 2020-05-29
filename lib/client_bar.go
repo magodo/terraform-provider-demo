@@ -15,6 +15,7 @@ type ModelBar struct {
 	Id     *string `json:"id"`
 	Name   *string `json:"name"`
 	Github *string `json:"github"`
+	Phone  *int    `json:"phone"`
 }
 
 const storageBar = "/tmp/resource_bar.json"

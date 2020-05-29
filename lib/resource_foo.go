@@ -59,6 +59,10 @@ func resourceFoo() *schema.Resource {
 					},
 				},
 			},
+			"output_job": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -115,6 +119,7 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
+	d.Set("output_job", *resp.Job)
 
 	return nil
 }
