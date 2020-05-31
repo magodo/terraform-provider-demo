@@ -2,9 +2,11 @@ package lib
 
 import (
 	"encoding/json"
-	"github.com/getlantern/deepcopy"
+	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/getlantern/deepcopy"
 )
 
 type ClientFoo struct{}
@@ -29,7 +31,9 @@ type Addr struct {
 	Roads   *[]string `json:"roads"`
 }
 
-const storageFoo = "/tmp/resource_foo.json"
+func storageFoo(name string) string {
+	return fmt.Sprintf("/tmp/resource_foo_%s.json", name)
+}
 
 func (c *ClientFoo) CreateOrUpdate(req *ModelFoo) (*ModelFoo, error) {
 	var resp ModelFoo
@@ -44,7 +48,7 @@ func (c *ClientFoo) CreateOrUpdate(req *ModelFoo) (*ModelFoo, error) {
 		return nil, err
 	}
 
-	if err := ioutil.WriteFile(storageFoo, b, 0644); err != nil {
+	if err := ioutil.WriteFile(storageFoo(*req.Name), b, 0644); err != nil {
 		return nil, err
 	}
 
@@ -52,7 +56,7 @@ func (c *ClientFoo) CreateOrUpdate(req *ModelFoo) (*ModelFoo, error) {
 }
 func (c *ClientFoo) Get(id string) (*ModelFoo, error) {
 	// fetch from fs
-	b, err := ioutil.ReadFile(storageFoo)
+	b, err := ioutil.ReadFile(storageFoo(id))
 	if err != nil {
 		return nil, err
 	}
@@ -65,5 +69,5 @@ func (c *ClientFoo) Get(id string) (*ModelFoo, error) {
 }
 
 func (c *ClientFoo) Delete(id string) error {
-	return os.Remove(storageFoo)
+	return os.Remove(storageFoo(id))
 }

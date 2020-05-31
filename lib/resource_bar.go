@@ -15,7 +15,7 @@ func resourceBar() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"github": {
+			"job": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
@@ -38,8 +38,8 @@ func resourceBarCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 		Name: &name,
 	}
 
-	if github, ok := d.GetOk("github"); ok {
-		param.Github = StringPtr(github.(string))
+	if job, ok := d.GetOk("job"); ok {
+		param.Job = StringPtr(job.(string))
 	}
 	if phone, ok := d.GetOk("phone"); ok {
 		param.Phone = IntPtr(phone.(int))
@@ -62,7 +62,7 @@ func resourceBarRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	d.Set("name", resp.Name)
-	d.Set("github", resp.Github)
+	d.Set("job", resp.Job)
 	d.Set("phone", resp.Phone)
 
 	return nil

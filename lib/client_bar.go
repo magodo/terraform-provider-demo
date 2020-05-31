@@ -2,31 +2,31 @@ package lib
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"strconv"
 
 	"github.com/getlantern/deepcopy"
 )
 
 type ClientBar struct{}
 type ModelBar struct {
-	Id     *string `json:"id"`
-	Name   *string `json:"name"`
-	Github *string `json:"github"`
-	Phone  *int    `json:"phone"`
+	Id    *string `json:"id"`
+	Name  *string `json:"name"`
+	Job   *string `json:"job"`
+	Phone *int    `json:"phone"`
 }
 
-const storageBar = "/tmp/resource_bar.json"
+func storageBar(name string) string {
+	return fmt.Sprintf("/tmp/resource_bar_%s.json", name)
+}
 
 func (c *ClientBar) CreateOrUpdate(req *ModelBar) (*ModelBar, error) {
 	var resp ModelBar
 	if err := deepcopy.Copy(&resp, req); err != nil {
 		return nil, err
 	}
-	id := strconv.Itoa(rand.Int())
-	resp.Id = &id
+	resp.Id = req.Name
 
 	// store in fs
 	b, err := json.Marshal(&resp)
@@ -34,7 +34,7 @@ func (c *ClientBar) CreateOrUpdate(req *ModelBar) (*ModelBar, error) {
 		return nil, err
 	}
 
-	if err := ioutil.WriteFile(storageBar, b, 0644); err != nil {
+	if err := ioutil.WriteFile(storageBar(*req.Name), b, 0644); err != nil {
 		return nil, err
 	}
 
@@ -42,7 +42,7 @@ func (c *ClientBar) CreateOrUpdate(req *ModelBar) (*ModelBar, error) {
 }
 func (c *ClientBar) Get(id string) (*ModelBar, error) {
 	// fetch from fs
-	b, err := ioutil.ReadFile(storageBar)
+	b, err := ioutil.ReadFile(storageBar(id))
 	if err != nil {
 		return nil, err
 	}
@@ -55,5 +55,5 @@ func (c *ClientBar) Get(id string) (*ModelBar, error) {
 }
 
 func (c *ClientBar) Delete(id string) error {
-	return os.Remove(storageBar)
+	return os.Remove(storageBar(id))
 }

@@ -88,7 +88,6 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 
 	param.Contact = expandContact(d.Get("contact").([]interface{}))
 	param.Addrs = expandAddrs(d.Get("addr").(*schema.Set).List())
-	//param.Addrs = expandAddrs(d.Get("addr").([]interface{}))
 
 	resp, err := client.CreateOrUpdate(param)
 	if err != nil {
