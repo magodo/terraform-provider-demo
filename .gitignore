@@ -2,3 +2,4 @@ terraform-provider-demo
 terraform.tfstate
 terraform.tfstate.*
 .idea
+cfg

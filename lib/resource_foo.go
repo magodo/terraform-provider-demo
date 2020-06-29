@@ -118,7 +118,11 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
-	d.Set("output_job", *resp.Job)
+	job := ""
+	if resp.Job != nil {
+		job = *resp.Job
+	}
+	d.Set("output_job", job)
 
 	return nil
 }
