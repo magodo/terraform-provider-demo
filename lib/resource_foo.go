@@ -1,6 +1,8 @@
 package lib
 
 import (
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
@@ -38,6 +40,9 @@ func resourceFoo() *schema.Resource {
 						"github": {
 							Type:     schema.TypeString,
 							Optional: true,
+							StateFunc: func(val interface{}) string {
+								return strings.ToLower(val.(string))
+							},
 						},
 					},
 				},
@@ -50,6 +55,9 @@ func resourceFoo() *schema.Resource {
 						"country": {
 							Type:     schema.TypeString,
 							Required: true,
+							StateFunc: func(val interface{}) string {
+								return strings.ToLower(val.(string))
+							},
 						},
 						"city": {
 							Type:     schema.TypeString,
@@ -118,7 +126,11 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
-	d.Set("output_job", *resp.Job)
+	job := ""
+	if resp.Job != nil {
+		job = *resp.Job
+	}
+	d.Set("output_job", job)
 
 	return nil
 }

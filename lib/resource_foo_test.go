@@ -59,6 +59,12 @@ func testAccExampleService_basic() string {
 	return fmt.Sprintf(`
 resource "demo_resource_foo" "foo" {
   name = "abc"
+  addr {
+    country = "China"
+  }
+  contact {
+    github = "Magodo"
+  }
 }
 `)
 }
