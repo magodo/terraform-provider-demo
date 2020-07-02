@@ -1,6 +1,6 @@
 resource "demo_resource_foo" "magodo" {
-  name = "magodo"
-  job  = "teacher"
+  name = "magodo2"
+  job  = "doctor"
 }
 
 resource "demo_resource_foo" "rr" {

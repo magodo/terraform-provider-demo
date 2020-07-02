@@ -10,6 +10,12 @@ func resourceFoo() *schema.Resource {
 		Read:   resourceFooRead,
 		Update: resourceFooCreateOrUpdate,
 		Delete: resourceFooDelete,
+		CustomizeDiff: func(d *schema.ResourceDiff, i interface{}) error {
+			if d.HasChange("job") {
+				d.SetNewComputed("output_job")
+			}
+			return nil
+		},
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
