@@ -16,6 +16,14 @@ func ExpandStringSlice(input []interface{}) *[]string {
 	return &result
 }
 
+func ExpandStringMap(m map[string]interface{}) *map[string]string {
+	output := make(map[string]string, len(m))
+	for i, v := range m {
+		output[i] = v.(string)
+	}
+	return &output
+}
+
 func FlattenStringSlice(input *[]string) []interface{} {
 	result := make([]interface{}, 0)
 	if input != nil {
@@ -24,6 +32,17 @@ func FlattenStringSlice(input *[]string) []interface{} {
 		}
 	}
 	return result
+}
+
+func FlattenStringMap(m *map[string]string) map[string]interface{} {
+	if m == nil {
+		return map[string]interface{}{}
+	}
+	output := make(map[string]interface{}, len(*m))
+	for i, v := range *m {
+		output[i] = v
+	}
+	return output
 }
 
 func StringPtr(s string) *string {

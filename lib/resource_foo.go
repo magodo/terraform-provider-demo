@@ -54,9 +54,22 @@ func resourceFoo() *schema.Resource {
 						"city": {
 							Type:     schema.TypeString,
 							Optional: true,
-							Default:  "",
+						},
+						"roads": {
+							Type:     schema.TypeMap,
+							Optional: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 					},
+				},
+			},
+			"tag": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
 				},
 			},
 			"output_job": {
@@ -88,6 +101,7 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 
 	param.Contact = expandContact(d.Get("contact").([]interface{}))
 	param.Addrs = expandAddrs(d.Get("addr").(*schema.Set).List())
+	param.Tags = ExpandStringMap(d.Get("tag").(map[string]interface{}))
 
 	resp, err := client.CreateOrUpdate(param)
 	if err != nil {
@@ -118,6 +132,7 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
+	d.Set("tags", FlattenStringMap(resp.Tags))
 	job := ""
 	if resp.Job != nil {
 		job = *resp.Job

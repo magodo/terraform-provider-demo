@@ -11,13 +11,14 @@ import (
 
 type ClientFoo struct{}
 type ModelFoo struct {
-	Id      *string     `json:"id"`
-	Name    *string     `json:"name"`
-	Age     *int        `json:"age"`
-	Job     *string     `json:"job"`
-	Aliases *[]string   `json:"aliases"`
-	Contact *ContactFoo `json:"contact"`
-	Addrs   *[]*Addr    `json:"addrs"`
+	Id      *string            `json:"id"`
+	Name    *string            `json:"name"`
+	Age     *int               `json:"age"`
+	Job     *string            `json:"job"`
+	Aliases *[]string          `json:"aliases"`
+	Contact *ContactFoo        `json:"contact"`
+	Addrs   *[]*Addr           `json:"addrs"`
+	Tags    *map[string]string `json:"tags"`
 }
 
 type ContactFoo struct {

@@ -70,9 +70,6 @@ resource "demo_resource_foo" "foo" {
   addr {
     country = "China"
   }
-  addr {
-    country = "UK"
-  }
 }
 `)
 }
@@ -85,7 +82,7 @@ resource "demo_resource_foo" "foo" {
     country = "China"
   }
   addr {
-    country = "US"
+    country = "UK"
   }
 }
 `)
