@@ -76,6 +76,45 @@ func resourceFoo() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"output_addr": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"country": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"city": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"roads": {
+							Type:     schema.TypeMap,
+							Computed: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+					},
+				},
+			},
+			"output_contact": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"phone": {
+							Type:     schema.TypeInt,
+							Computed: true,
+						},
+						"github": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -133,6 +172,8 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
 	d.Set("tags", FlattenStringMap(resp.Tags))
+	d.Set("output_contact", flattenContact(resp.Contact))
+	d.Set("output_addr", flattenAddrs(resp.Addrs))
 	job := ""
 	if resp.Job != nil {
 		job = *resp.Job
