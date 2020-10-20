@@ -263,7 +263,7 @@ func flattenContact(input *ContactFoo) []interface{} {
 	// 	This is a bug in the provider, which should be reported in the provider's own
 	// 	issue tracker.
 
-	flattenStrategy := 1
+	flattenStrategy := 3
 
 	// Possible ways of handling:
 	//
@@ -307,22 +307,31 @@ func flattenContact(input *ContactFoo) []interface{} {
 
 func flattenAddrs(input *[]*Addr) []interface{} {
 	if input == nil {
-		return []interface{}{}
+		return nil
 	}
 
 	output := make([]interface{}, 0)
 
 	for _, v := range *input {
-		if v != nil {
-			m := make(map[string]interface{})
-			if v.Country != nil {
-				m["country"] = *v.Country
-			}
-			if v.City != nil {
-				m["city"] = *v.City
-			}
-			output = append(output, m)
+		if v == nil {
+			continue
 		}
+
+		var (
+			country string
+			city    string
+		)
+
+		if v.Country != nil {
+			country = *v.Country
+		}
+		if v.City != nil {
+			city = *v.City
+		}
+		output = append(output, map[string]interface{}{
+			"country": country,
+			"city":    city,
+		})
 	}
 
 	return output
