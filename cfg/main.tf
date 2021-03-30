@@ -1,14 +1,4 @@
-terraform {
-  required_providers {
-    demo = {
-    source = "magodo/demo"
-  }
-  }
-}
-
-resource "demo_resource_foo" "magodo" {
+resource "demo_resource_bar" "magodo" {
   name = "magodo"
-  addr {
-    country = "China"
-  }
+  locations = ["b"]
 }

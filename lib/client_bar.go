@@ -15,6 +15,11 @@ type ModelBar struct {
 	Name  *string `json:"name"`
 	Job   *string `json:"job"`
 	Phone *int    `json:"phone"`
+	Locations *[]Location `json:"locations"`
+}
+
+type Location struct {
+	Name *string `json:"name"`
 }
 
 func storageBar(name string) string {
