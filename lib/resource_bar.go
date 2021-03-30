@@ -26,14 +26,14 @@ func resourceBar() *schema.Resource {
 				Optional: true,
 			},
 			"locations_deprecated": {
-				Type:     schema.TypeSet,
+				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"locations": {
-				Type:     schema.TypeSet,
+				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -61,9 +61,9 @@ func resourceBarCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 		param.Phone = IntPtr(phone.(int))
 	}
 
-	param.Locations = expandLocationSlicePtr(d.Get("locations").(*schema.Set).List())
+	param.Locations = expandLocationSlicePtr(d.Get("locations").([]interface{}))
 	if param.Locations == nil {
-		param.Locations = expandLocationSlicePtr(d.Get("locations_deprecated").(*schema.Set).List())
+		param.Locations = expandLocationSlicePtr(d.Get("locations_deprecated").([]interface{}))
 	}
 
 	resp, err := client.CreateOrUpdate(param)
