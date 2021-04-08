@@ -6,5 +6,3 @@ require (
 	github.com/getlantern/deepcopy v0.0.0-20160317154340-7f45deb8130a
 	github.com/hashicorp/terraform-plugin-sdk v1.14.0
 )
-
-replace github.com/hashicorp/terraform-plugin-sdk => /home/magodo/github/terraform-plugin-sdk
