@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceFoo() *schema.Resource {
@@ -65,7 +65,7 @@ func resourceFoo() *schema.Resource {
 					},
 				},
 			},
-			"tag": {
+			"tags": {
 				Type:     schema.TypeMap,
 				Optional: true,
 				Elem: &schema.Schema{
@@ -140,7 +140,7 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 
 	param.Contact = expandContact(d.Get("contact").([]interface{}))
 	param.Addrs = expandAddrs(d.Get("addr").(*schema.Set).List())
-	param.Tags = ExpandStringMap(d.Get("tag").(map[string]interface{}))
+	param.Tags = ExpandStringMap(d.Get("tags").(map[string]interface{}))
 
 	resp, err := client.CreateOrUpdate(param)
 	if err != nil {
