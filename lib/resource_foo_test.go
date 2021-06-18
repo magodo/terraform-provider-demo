@@ -26,8 +26,10 @@ func init() {
 
 func TestAccExampleService_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		Providers: map[string]terraform.ResourceProvider{
-			"demo": Provider(),
+		ProviderFactories: map[string]terraform.ResourceProviderFactory{
+			"demo"	: func() (terraform.ResourceProvider, error) {
+				return Provider(), nil
+			},
 		},
 		Steps: []resource.TestStep{
 			{
@@ -45,8 +47,10 @@ func TestAccExampleService_basic(t *testing.T) {
 
 func TestAccExampleService_updateJob(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		Providers: map[string]terraform.ResourceProvider{
-			"demo": Provider(),
+		ProviderFactories: map[string]terraform.ResourceProviderFactory{
+			"demo"	: func() (terraform.ResourceProvider, error) {
+				return Provider(), nil
+			},
 		},
 		Steps: []resource.TestStep{
 			{
@@ -73,8 +77,10 @@ func TestAccExampleService_updateJob(t *testing.T) {
 
 func TestAccExampleService_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		Providers: map[string]terraform.ResourceProvider{
-			"demo": Provider(),
+		ProviderFactories: map[string]terraform.ResourceProviderFactory{
+			"demo"	: func() (terraform.ResourceProvider, error) {
+				return Provider(), nil
+			},
 		},
 		Steps: []resource.TestStep{
 			{

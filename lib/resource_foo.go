@@ -130,11 +130,11 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 		Name: &name,
 	}
 
-	if age, ok := d.GetOkExists("age"); ok {
+	if age, ok := d.GetOk("age"); ok {
 		param.Age = IntPtr(age.(int))
 	}
 
-	if job, ok := d.GetOkExists("job"); ok {
+	if job, ok := d.GetOk("job"); ok {
 		param.Job = StringPtr(job.(string))
 	}
 
@@ -159,15 +159,22 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	d.Set("name", resp.Name)
-	// for root level property, below operations are different:
+
+	// For root level property, below operations are different:
 	// - not set at all: will results into a null in tf state
 	// - set a nil: will results into a `""` in tf state
-	if resp.Age != nil {
-		d.Set("age", resp.Age)
-	}
-	if resp.Job != nil {
-		d.Set("job", resp.Job)
-	}
+	//
+	// We should always set the root property. In case it is absent in the response, we should also
+	// set a default value.
+	//
+	// Otherwise, there will be problem:
+	// Imagine we have a test case, which test remove of the "job" property, followed by a import verification step.
+	// - After the remove of the "job" property step, the state of the "job" is "" (due to the case that "string is only one-way convertible from null to `""`")
+	// - After the import in the import verification step, the state of the "job" depends on whether we have the set the "job" in below code. If we didn't (due to
+	//   the resp.Job is null, as we have removed the job in the request), then the "job" in current state is null. Then when the test framework compares with the
+	// 	 old state and the new state, it will complain a diff.
+	d.Set("age", resp.Age)
+	d.Set("job", resp.Job)
 
 	d.Set("contact", flattenContact(resp.Contact))
 	d.Set("addr", flattenAddrs(resp.Addrs))
