@@ -2,35 +2,21 @@ package lib
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/acctest"
-	"os"
-	"sync"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-var once sync.Once
-
-func init() {
-	// require reattach testing is enabled
-	os.Setenv("TF_ACCTEST_REATTACH", "1")
-
-	once.Do(func() {
-		acctest.UseBinaryDriver("demo", func() terraform.ResourceProvider {
-			return Provider()
-		})
-	})
+var providerFactories = map[string]func() (*schema.Provider, error){
+	"demo": func() (*schema.Provider, error) {
+		return Provider(), nil
+	},
 }
 
 func TestAccExampleService_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		ProviderFactories: map[string]terraform.ResourceProviderFactory{
-			"demo"	: func() (terraform.ResourceProvider, error) {
-				return Provider(), nil
-			},
-		},
+		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccExampleService_basic(),
@@ -47,11 +33,7 @@ func TestAccExampleService_basic(t *testing.T) {
 
 func TestAccExampleService_updateJob(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		ProviderFactories: map[string]terraform.ResourceProviderFactory{
-			"demo"	: func() (terraform.ResourceProvider, error) {
-				return Provider(), nil
-			},
-		},
+		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccExampleService_withJob(),
@@ -77,11 +59,7 @@ func TestAccExampleService_updateJob(t *testing.T) {
 
 func TestAccExampleService_update(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		ProviderFactories: map[string]terraform.ResourceProviderFactory{
-			"demo"	: func() (terraform.ResourceProvider, error) {
-				return Provider(), nil
-			},
-		},
+		ProviderFactories: providerFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccExampleService_before_update(),
