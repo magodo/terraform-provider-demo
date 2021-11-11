@@ -1,6 +1,10 @@
 package lib
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -24,10 +28,18 @@ func resourceFoo() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
+			"parameters": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"metadata": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
 			"contact": {
 				Type:     schema.TypeList,
 				Optional: true,
-				//Computed: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -37,7 +49,21 @@ func resourceFoo() *schema.Resource {
 						},
 						"github": {
 							Type:     schema.TypeString,
+							Computed: true,
 							Optional: true,
+						},
+						"other_string": {
+							Type:          schema.TypeString,
+							Computed:      true,
+							Optional:      true,
+							ConflictsWith: []string{"contact.0.other_map"},
+						},
+						"other_map": {
+							Type:          schema.TypeMap,
+							Computed:      true,
+							Optional:      true,
+							Elem:          &schema.Schema{Type: schema.TypeString},
+							ConflictsWith: []string{"contact.0.other_string"},
 						},
 					},
 				},
@@ -112,6 +138,14 @@ func resourceFoo() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"other_string": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"other_map": {
+							Type:     schema.TypeMap,
+							Computed: true,
+						},
 					},
 				},
 			},
@@ -138,7 +172,19 @@ func resourceFooCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 		param.Job = StringPtr(job.(string))
 	}
 
-	param.Contact = expandContact(d.Get("contact").([]interface{}))
+	if metadata, ok := d.GetOk("metadata"); ok {
+		param.Metadata = StringPtr(metadata.(string))
+	}
+
+	if parameters, ok := d.GetOk("parameters"); ok {
+		param.Parameters = StringPtr(parameters.(string))
+	}
+
+	var err error
+	param.Contact, err = expandContact(d.Get("contact").([]interface{}))
+	if err != nil {
+		return err
+	}
 	param.Addrs = expandAddrs(d.Get("addr").(*schema.Set).List())
 	param.Tags = ExpandStringMap(d.Get("tags").(map[string]interface{}))
 
@@ -175,11 +221,25 @@ func resourceFooRead(d *schema.ResourceData, m interface{}) error {
 	// 	 old state and the new state, it will complain a diff.
 	d.Set("age", resp.Age)
 	d.Set("job", resp.Job)
+	d.Set("metadata", resp.Metadata)
+	d.Set("parameters", resp.Parameters)
 
-	d.Set("contact", flattenContact(resp.Contact))
+	contact, err := flattenContact(resp.Contact)
+	if err != nil {
+		return err
+	}
+	if err := d.Set("contact", contact); err != nil {
+		return err
+	}
 	d.Set("addr", flattenAddrs(resp.Addrs))
 	d.Set("tags", FlattenStringMap(resp.Tags))
-	d.Set("output_contact", flattenContact(resp.Contact))
+	ocontact, err := flattenContact(resp.Contact)
+	if err != nil {
+		return err
+	}
+	if err := d.Set("output_contact", ocontact); err != nil {
+		return err
+	}
 	d.Set("output_addr", flattenAddrs(resp.Addrs))
 	job := ""
 	if resp.Job != nil {
@@ -195,9 +255,9 @@ func resourceFooDelete(d *schema.ResourceData, m interface{}) error {
 	return client.Delete(d.Id())
 }
 
-func expandContact(contact []interface{}) *ContactFoo {
+func expandContact(contact []interface{}) (*ContactFoo, error) {
 	if len(contact) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	v := contact[0].(map[string]interface{})
@@ -211,11 +271,25 @@ func expandContact(contact []interface{}) *ContactFoo {
 	// if v["phone"] != nil {
 	// 	contact.Phone = IntPtr(v["phone"].(int))
 	// }
+
+	other := map[string]interface{}{}
+	if os := v["other_string"].(string); os != "" {
+		if err := json.Unmarshal([]byte(os), &other); err != nil {
+			return nil, err
+		}
+	} else {
+		om := v["other_map"].(map[string]interface{})
+		for k, v := range om {
+			other[k] = v.(string)
+		}
+	}
+
 	output := &ContactFoo{
 		Github: StringPtr(v["github"].(string)),
 		Phone:  IntPtr(v["phone"].(int)),
+		Other:  other,
 	}
-	return output
+	return output, nil
 }
 
 func expandAddrs(addrs []interface{}) *[]*Addr {
@@ -236,9 +310,9 @@ func expandAddrs(addrs []interface{}) *[]*Addr {
 	return &result
 }
 
-func flattenContact(input *ContactFoo) []interface{} {
+func flattenContact(input *ContactFoo) ([]interface{}, error) {
 	if input == nil {
-		return []interface{}{}
+		return []interface{}{}, nil
 	}
 
 	// Given following cfg:
@@ -286,7 +360,7 @@ func flattenContact(input *ContactFoo) []interface{} {
 		if input.Github != nil {
 			result["github"] = *input.Github
 		}
-		return []interface{}{result}
+		return []interface{}{result}, nil
 	// 2. set pointer anyway
 	//	  If setting a nil into map, it will ends up with the default value of that type. But this behavior is not guarateed
 	//    to be supported in long term, so we'd better to set the default value by ourselves (i.e. use the 3rd way).
@@ -294,7 +368,7 @@ func flattenContact(input *ContactFoo) []interface{} {
 		result := make(map[string]interface{})
 		result["phone"] = input.Phone
 		result["github"] = input.Github
-		return []interface{}{result}
+		return []interface{}{result}, nil
 		// 3. set it if non nil in response, otherwise, set a default value
 	case 3:
 		phone, github := 0, ""
@@ -304,10 +378,31 @@ func flattenContact(input *ContactFoo) []interface{} {
 		if input.Github != nil {
 			github = *input.Github
 		}
+		om := map[string]interface{}{}
+		for k, v := range input.Other {
+			if v == nil {
+				continue
+			}
+			om[k] = fmt.Sprintf("%v", v)
+		}
+
+		os := "{}"
+		result, err := json.Marshal(input.Other)
+		if err != nil {
+			return nil, err
+		}
+		compactJson := bytes.Buffer{}
+		if err := json.Compact(&compactJson, result); err != nil {
+			return nil, err
+		}
+		os = compactJson.String()
+
 		return []interface{}{map[string]interface{}{
-			"phone":  phone,
-			"github": github,
-		}}
+			"phone":        phone,
+			"github":       github,
+			"other_map":    om,
+			"other_string": os,
+		}}, nil
 	}
 	panic("not supposed to reach here")
 }

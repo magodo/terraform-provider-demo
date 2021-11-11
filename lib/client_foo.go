@@ -11,19 +11,22 @@ import (
 
 type ClientFoo struct{}
 type ModelFoo struct {
-	Id      *string            `json:"id"`
-	Name    *string            `json:"name"`
-	Age     *int               `json:"age"`
-	Job     *string            `json:"job"`
-	Aliases *[]string          `json:"aliases"`
-	Contact *ContactFoo        `json:"contact"`
-	Addrs   *[]*Addr           `json:"addrs"`
-	Tags    *map[string]string `json:"tags"`
+	Id         *string            `json:"id"`
+	Name       *string            `json:"name"`
+	Age        *int               `json:"age"`
+	Job        *string            `json:"job"`
+	Metadata   *string            `json:"metadata"`
+	Parameters *string            `json:"parameters"`
+	Aliases    *[]string          `json:"aliases"`
+	Contact    *ContactFoo        `json:"contact"`
+	Addrs      *[]*Addr           `json:"addrs"`
+	Tags       *map[string]string `json:"tags"`
 }
 
 type ContactFoo struct {
-	Phone  *int    `json:"phone"`
-	Github *string `json:"github"`
+	Phone  *int                   `json:"phone"`
+	Github *string                `json:"github"`
+	Other  map[string]interface{} `json:"other"`
 }
 
 type Addr struct {
