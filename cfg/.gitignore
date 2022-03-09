@@ -1,4 +1,0 @@
-*.backup
-*.tfstate
-.terraform
-crash.log
