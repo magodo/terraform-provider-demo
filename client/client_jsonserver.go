@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 )
 
@@ -53,10 +54,7 @@ func (j *JSONServerClient) Create(b []byte) (string, error) {
 }
 
 func (j *JSONServerClient) Read(id string) ([]byte, error) {
-	url, err := j.baseURL.Parse(id)
-	if err != nil {
-		return nil, err
-	}
+	url := joinPath(j.baseURL, id)
 	resp, err := http.Get(url.String())
 	if err != nil {
 		return nil, err
@@ -74,10 +72,7 @@ func (j *JSONServerClient) Read(id string) ([]byte, error) {
 }
 
 func (j *JSONServerClient) Update(id string, b []byte) error {
-	url, err := j.baseURL.Parse(id)
-	if err != nil {
-		return err
-	}
+	url := joinPath(j.baseURL, id)
 	req, err := http.NewRequest("PUT", url.String(), bytes.NewBuffer(b))
 	if err != nil {
 		return err
@@ -100,10 +95,7 @@ func (j *JSONServerClient) Update(id string, b []byte) error {
 }
 
 func (j *JSONServerClient) Delete(id string) error {
-	url, err := j.baseURL.Parse(id)
-	if err != nil {
-		return err
-	}
+	url := joinPath(j.baseURL, id)
 	req, err := http.NewRequest("DELETE", url.String(), nil)
 	if err != nil {
 		return err
@@ -122,4 +114,9 @@ func (j *JSONServerClient) Delete(id string) error {
 		return fmt.Errorf("unexpected status code: %d. Message: %s", resp.StatusCode, string(content))
 	}
 	return nil
+}
+
+func joinPath(base url.URL, p string) url.URL {
+	base.Path = path.Join(base.Path, p)
+	return base
 }

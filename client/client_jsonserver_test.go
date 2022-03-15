@@ -36,7 +36,7 @@ func (h *testHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 		id := atomic.AddUint64(&h.i, 1)
 		m["id"] = id
-		url, _ := r.URL.Parse(strconv.FormatUint(id, 10))
+		url := joinPath(*r.URL, strconv.FormatUint(id, 10))
 		h.buf[url.Path] = m
 		b, err = json.Marshal(m)
 		if err != nil {
