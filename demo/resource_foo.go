@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/magodo/terraform-provider-demo/client"
 )
 
 type resourceFooType struct{}
@@ -150,7 +151,10 @@ func (r resourceFoo) Read(ctx context.Context, req tfsdk.ReadResourceRequest, re
 	}
 	b, err := r.p.client.Read(state.ID.Value)
 	if err != nil {
-		// TODO: special handling for "404"
+		if err == client.ErrNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Read failure",
 			fmt.Sprintf("Sending read request: %v", err),

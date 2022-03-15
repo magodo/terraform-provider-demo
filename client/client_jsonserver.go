@@ -25,8 +25,8 @@ func NewJSONServerClient(endpoint string) (Client, error) {
 	}, nil
 }
 
-func statuscodeOK(code int, okCodes ...int) bool {
-	for _, okcode := range okCodes {
+func statuscodeMatches(code int, codes ...int) bool {
+	for _, okcode := range codes {
 		if okcode == code {
 			return true
 		}
@@ -43,7 +43,7 @@ func (j *JSONServerClient) Create(b []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !statuscodeOK(resp.StatusCode, http.StatusOK, http.StatusCreated) {
+	if !statuscodeMatches(resp.StatusCode, http.StatusOK, http.StatusCreated) {
 		return "", fmt.Errorf("unexpected status code: %d. Message: %s", resp.StatusCode, string(content))
 	}
 	payload := map[string]interface{}{}
@@ -61,11 +61,15 @@ func (j *JSONServerClient) Read(id string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if statuscodeMatches(resp.StatusCode, http.StatusNotFound) {
+		return nil, ErrNotFound
+	}
+
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	if !statuscodeOK(resp.StatusCode, http.StatusOK) {
+	if !statuscodeMatches(resp.StatusCode, http.StatusOK) {
 		return nil, fmt.Errorf("unexpected status code: %d. Message: %s", resp.StatusCode, string(content))
 	}
 	return content, nil
@@ -88,7 +92,7 @@ func (j *JSONServerClient) Update(id string, b []byte) error {
 	if err != nil {
 		return err
 	}
-	if !statuscodeOK(resp.StatusCode, http.StatusOK) {
+	if !statuscodeMatches(resp.StatusCode, http.StatusOK) {
 		return fmt.Errorf("unexpected status code: %d. Message: %s", resp.StatusCode, string(content))
 	}
 	return nil
@@ -110,7 +114,7 @@ func (j *JSONServerClient) Delete(id string) error {
 	if err != nil {
 		return err
 	}
-	if !statuscodeOK(resp.StatusCode, http.StatusOK) {
+	if !statuscodeMatches(resp.StatusCode, http.StatusOK) {
 		return fmt.Errorf("unexpected status code: %d. Message: %s", resp.StatusCode, string(content))
 	}
 	return nil

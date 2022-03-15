@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -39,7 +40,11 @@ func (f *FsClient) Update(id string, b []byte) error {
 }
 
 func (f *FsClient) Read(id string) ([]byte, error) {
-	return afero.ReadFile(f.fs, filepath.Join(f.dir, id))
+	b, err := afero.ReadFile(f.fs, filepath.Join(f.dir, id))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, ErrNotFound
+	}
+	return b, err
 }
 
 func (f *FsClient) Delete(id string) error {

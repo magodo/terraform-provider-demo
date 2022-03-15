@@ -20,5 +20,5 @@ func TestFsClient(t *testing.T) {
 	require.Equal(t, content, got, "read after update")
 	require.NoError(t, c.Delete(id), "delete failed")
 	_, err = c.Read(id)
-	require.Error(t, err, "read after delete")
+	require.Equal(t, ErrNotFound, err, "read non existent resource should return ErrNotFound")
 }
