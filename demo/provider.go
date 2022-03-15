@@ -120,7 +120,9 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 }
 
 func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
-	return map[string]tfsdk.ResourceType{}, nil
+	return map[string]tfsdk.ResourceType{
+		"demo_foo": resourceFooType{},
+	}, nil
 }
 
 // GetDataSources returns a map of the data source types this provider
