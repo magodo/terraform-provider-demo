@@ -263,6 +263,10 @@ func (r resourceFoo) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest
 	}
 
 	if err := r.p.client.Delete(state.ID.Value); err != nil {
+		if err == client.ErrNotFound {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Delete failure",
 			fmt.Sprintf("Sending delete request: %v", err),

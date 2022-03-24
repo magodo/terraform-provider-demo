@@ -48,5 +48,9 @@ func (f *FsClient) Read(id string) ([]byte, error) {
 }
 
 func (f *FsClient) Delete(id string) error {
-	return f.fs.Remove(filepath.Join(f.dir, id))
+	err := f.fs.Remove(filepath.Join(f.dir, id))
+	if errors.Is(err, os.ErrNotExist) {
+		return ErrNotFound
+	}
+	return err
 }

@@ -110,6 +110,10 @@ func (j *JSONServerClient) Delete(id string) error {
 	}
 	defer resp.Body.Close()
 
+	if statuscodeMatches(resp.StatusCode, http.StatusNotFound) {
+		return ErrNotFound
+	}
+
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
