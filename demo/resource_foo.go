@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/magodo/terraform-provider-demo/client"
 )
 
@@ -28,26 +28,25 @@ func (r resourceFooType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagno
 					tfsdk.UseStateForUnknown(),
 				},
 			},
-			"name": {
-				Type:                types.StringType,
-				Description:         "name",
-				MarkdownDescription: "name",
-				Required:            true,
-				PlanModifiers: []tfsdk.AttributePlanModifier{
-					tfsdk.RequiresReplace(),
-				},
+			"string": {
+				Type:     types.StringType,
+				Optional: true,
 			},
-			"age": {
-				Type:                types.Int64Type,
-				Description:         "age",
-				MarkdownDescription: "age",
-				Optional:            true,
+			"int64": {
+				Type:     types.Int64Type,
+				Optional: true,
 			},
-			"job": {
-				Type:                types.StringType,
-				Description:         "job",
-				MarkdownDescription: "job",
-				Optional:            true,
+			"float64": {
+				Type:     types.Float64Type,
+				Optional: true,
+			},
+			"number": {
+				Type:     types.NumberType,
+				Optional: true,
+			},
+			"bool": {
+				Type:     types.BoolType,
+				Optional: true,
 			},
 		},
 	}, nil
@@ -65,10 +64,12 @@ type resourceFoo struct {
 var _ tfsdk.Resource = resourceFoo{}
 
 type foo struct {
-	ID   types.String `tfsdk:"id"   json:"id,omitempty"`
-	Name types.String `tfsdk:"name" json:"name,omitempty"`
-	Age  types.Int64  `tfsdk:"age"  json:"age,omitempty"`
-	Job  types.String `tfsdk:"job"  json:"job,omitempty"`
+	ID      types.String  `tfsdk:"id"   json:"id,omitempty"`
+	String  types.String  `tfsdk:"string" json:"string,omitempty"`
+	Int64   types.Int64   `tfsdk:"int64"  json:"int64,omitempty"`
+	Float64 types.Float64 `tfsdk:"float64" json:"float64,omitempty"`
+	Number  types.Number  `tfsdk:"number" json:"number,omitempty"`
+	Bool    types.Bool    `tfsdk:"bool" json:"bool,omitempty"`
 }
 
 // Create is called when the provider must create a new resource. Config
@@ -84,14 +85,21 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 	}
 
 	// Expand
-	m := map[string]interface{}{
-		"name": plan.Name.Value,
+	m := map[string]interface{}{}
+	if !plan.String.Null {
+		m["string"] = plan.String.Value
 	}
-	if !plan.Age.Null {
-		m["age"] = plan.Age.Value
+	if !plan.Int64.Null {
+		m["int64"] = plan.Int64.Value
 	}
-	if !plan.Job.Null {
-		m["job"] = plan.Job.Value
+	if !plan.Float64.Null {
+		m["float64"] = plan.Float64.Value
+	}
+	if !plan.Number.Null {
+		m["number"] = plan.Number.Value.String()
+	}
+	if !plan.Bool.Null {
+		m["bool"] = plan.Bool.Value
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -111,10 +119,12 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 	}
 	diags = resp.State.Set(ctx,
 		foo{
-			ID:   types.String{Value: id},
-			Name: types.String{Null: true},
-			Age:  types.Int64{Null: true},
-			Job:  types.String{Null: true},
+			ID:      types.String{Value: id},
+			String:  types.String{Null: true},
+			Int64:   types.Int64{Null: true},
+			Float64: types.Float64{Null: true},
+			Number:  types.Number{Null: true},
+			Bool:    types.Bool{Null: true},
 		},
 	)
 	resp.Diagnostics.Append(diags...)
@@ -170,18 +180,29 @@ func (r resourceFoo) Read(ctx context.Context, req tfsdk.ReadResourceRequest, re
 		return
 	}
 
-	tflog.Debug(ctx, "read content", m)
-	tflog.Debug(ctx, "state", state)
-
 	// Flatten
-	if name, ok := m["name"]; ok {
-		state.Name = types.String{Value: name.(string)}
+	if v, ok := m["string"]; ok {
+		state.String = types.String{Value: v.(string)}
 	}
-	if age, ok := m["age"]; ok {
-		state.Age = types.Int64{Value: int64(age.(float64))}
+	if v, ok := m["int64"]; ok {
+		state.Int64 = types.Int64{Value: int64(v.(float64))}
 	}
-	if job, ok := m["job"]; ok {
-		state.Job = types.String{Value: job.(string)}
+	if v, ok := m["float64"]; ok {
+		state.Float64 = types.Float64{Value: v.(float64)}
+	}
+	if v, ok := m["number"]; ok {
+		f, _, err := big.ParseFloat(v.(string), 10, 'g', big.ToNearestEven)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Read failure",
+				fmt.Sprintf("Failed to parse the `number` (%s) as float: %v", v.(string), err),
+			)
+			return
+		}
+		state.Number = types.Number{Value: f}
+	}
+	if v, ok := m["bool"]; ok {
+		state.Bool = types.Bool{Value: v.(bool)}
 	}
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -203,14 +224,21 @@ func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest
 	}
 
 	// Expand
-	m := map[string]interface{}{
-		"name": plan.Name.Value,
+	m := map[string]interface{}{}
+	if !plan.String.Null {
+		m["string"] = plan.String.Value
 	}
-	if !plan.Age.Null {
-		m["age"] = plan.Age.Value
+	if !plan.Int64.Null {
+		m["int64"] = plan.Int64.Value
 	}
-	if !plan.Job.Null {
-		m["job"] = plan.Job.Value
+	if !plan.Float64.Null {
+		m["float64"] = plan.Float64.Value
+	}
+	if !plan.Number.Null {
+		m["number"] = plan.Number.Value.String()
+	}
+	if !plan.Bool.Null {
+		m["bool"] = plan.Bool.Value
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
