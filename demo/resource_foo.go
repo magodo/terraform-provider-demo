@@ -6,64 +6,20 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/magodo/terraform-provider-demo/client"
 )
 
-type resourceFooType struct{}
-
-// GetSchema returns the schema for this resource.
-func (r resourceFooType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Description:         "Resource Foo",
-		MarkdownDescription: "Resource Foo",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
-				Computed: true,
-				PlanModifiers: []tfsdk.AttributePlanModifier{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-			"string": {
-				Type:     types.StringType,
-				Optional: true,
-			},
-			"int64": {
-				Type:     types.Int64Type,
-				Optional: true,
-			},
-			"float64": {
-				Type:     types.Float64Type,
-				Optional: true,
-			},
-			"number": {
-				Type:     types.NumberType,
-				Optional: true,
-			},
-			"bool": {
-				Type:     types.BoolType,
-				Optional: true,
-			},
-		},
-	}, nil
-}
-
-// NewResource instantiates a new Resource of this ResourceType.
-func (r resourceFooType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceFoo{p: *p.(*provider)}, nil
-}
-
 type resourceFoo struct {
-	p provider
+	p *Provider
 }
 
-var _ tfsdk.Resource = resourceFoo{}
-
-type foo struct {
+type fooData struct {
 	ID      types.String  `tfsdk:"id"   json:"id,omitempty"`
 	String  types.String  `tfsdk:"string" json:"string,omitempty"`
 	Int64   types.Int64   `tfsdk:"int64"  json:"int64,omitempty"`
@@ -72,12 +28,65 @@ type foo struct {
 	Bool    types.Bool    `tfsdk:"bool" json:"bool,omitempty"`
 }
 
+var _ resource.Resource = resourceFoo{}
+
+// Metadata implements resource.Resource.
+func (resourceFoo) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_foo"
+}
+
+// Schema implements resource.Resource.
+func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description:         "Resource Foo",
+		MarkdownDescription: "Resource Foo",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"string": schema.StringAttribute{
+				Optional: true,
+			},
+			"int64": schema.Int64Attribute{
+				Optional: true,
+			},
+			"float64": schema.Float64Attribute{
+				Optional: true,
+			},
+			"number": schema.NumberAttribute{
+				Optional: true,
+			},
+			"bool": schema.BoolAttribute{
+				Optional: true,
+			},
+		},
+	}
+}
+
+func (r *resourceFoo) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	provider, ok := req.ProviderData.(*Provider)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("got: %T.", req.ProviderData),
+		)
+		return
+	}
+	r.p = provider
+}
+
 // Create is called when the provider must create a new resource. Config
 // and planned state values should be read from the
 // CreateResourceRequest and new state values set on the
 // CreateResourceResponse.
-func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
-	var plan foo
+func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan fooData
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
@@ -86,20 +95,20 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 
 	// Expand
 	m := map[string]interface{}{}
-	if !plan.String.Null {
-		m["string"] = plan.String.Value
+	if !plan.String.IsNull() {
+		m["string"] = plan.String.ValueString()
 	}
-	if !plan.Int64.Null {
-		m["int64"] = plan.Int64.Value
+	if !plan.Int64.IsNull() {
+		m["int64"] = plan.Int64.ValueInt64()
 	}
-	if !plan.Float64.Null {
-		m["float64"] = plan.Float64.Value
+	if !plan.Float64.IsNull() {
+		m["float64"] = plan.Float64.ValueFloat64()
 	}
-	if !plan.Number.Null {
-		m["number"] = plan.Number.Value.String()
+	if !plan.Number.IsNull() {
+		m["number"], _ = plan.Number.ValueBigFloat().Float64()
 	}
-	if !plan.Bool.Null {
-		m["bool"] = plan.Bool.Value
+	if !plan.Bool.IsNull() {
+		m["bool"] = plan.Bool.ValueBool()
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -118,13 +127,13 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 		return
 	}
 	diags = resp.State.Set(ctx,
-		foo{
-			ID:      types.String{Value: id},
-			String:  types.String{Null: true},
-			Int64:   types.Int64{Null: true},
-			Float64: types.Float64{Null: true},
-			Number:  types.Number{Null: true},
-			Bool:    types.Bool{Null: true},
+		fooData{
+			ID:      types.StringValue(id),
+			String:  types.StringNull(),
+			Int64:   types.Int64Null(),
+			Float64: types.Float64Null(),
+			Number:  types.NumberNull(),
+			Bool:    types.BoolNull(),
 		},
 	)
 	resp.Diagnostics.Append(diags...)
@@ -132,17 +141,17 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 		return
 	}
 
-	rreq := tfsdk.ReadResourceRequest{
+	rreq := resource.ReadRequest{
 		State:        resp.State,
 		ProviderMeta: req.ProviderMeta,
 	}
-	rresp := tfsdk.ReadResourceResponse{
+	rresp := resource.ReadResponse{
 		State:       resp.State,
 		Diagnostics: resp.Diagnostics,
 	}
 	r.Read(ctx, rreq, &rresp)
 
-	*resp = tfsdk.CreateResourceResponse{
+	*resp = resource.CreateResponse{
 		State:       rresp.State,
 		Diagnostics: rresp.Diagnostics,
 	}
@@ -152,14 +161,14 @@ func (r resourceFoo) Create(ctx context.Context, req tfsdk.CreateResourceRequest
 // to update state. Planned state values should be read from the
 // ReadResourceRequest and new state values set on the
 // ReadResourceResponse.
-func (r resourceFoo) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
-	var state foo
+func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state fooData
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
-	b, err := r.p.client.Read(state.ID.Value)
+	b, err := r.p.client.Read(state.ID.ValueString())
 	if err != nil {
 		if err == client.ErrNotFound {
 			resp.State.RemoveResource(ctx)
@@ -182,27 +191,19 @@ func (r resourceFoo) Read(ctx context.Context, req tfsdk.ReadResourceRequest, re
 
 	// Flatten
 	if v, ok := m["string"]; ok {
-		state.String = types.String{Value: v.(string)}
+		state.String = types.StringValue(v.(string))
 	}
 	if v, ok := m["int64"]; ok {
-		state.Int64 = types.Int64{Value: int64(v.(float64))}
+		state.Int64 = types.Int64Value(int64(v.(float64)))
 	}
 	if v, ok := m["float64"]; ok {
-		state.Float64 = types.Float64{Value: v.(float64)}
+		state.Float64 = types.Float64Value(v.(float64))
 	}
 	if v, ok := m["number"]; ok {
-		f, _, err := big.ParseFloat(v.(string), 10, 'g', big.ToNearestEven)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Read failure",
-				fmt.Sprintf("Failed to parse the `number` (%s) as float: %v", v.(string), err),
-			)
-			return
-		}
-		state.Number = types.Number{Value: f}
+		state.Number = types.NumberValue(big.NewFloat(v.(float64)))
 	}
 	if v, ok := m["bool"]; ok {
-		state.Bool = types.Bool{Value: v.(bool)}
+		state.Bool = types.BoolValue(v.(bool))
 	}
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -215,8 +216,8 @@ func (r resourceFoo) Read(ctx context.Context, req tfsdk.ReadResourceRequest, re
 // state, and prior state values should be read from the
 // UpdateResourceRequest and new state values set on the
 // UpdateResourceResponse.
-func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	var plan foo
+func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan fooData
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
@@ -225,20 +226,20 @@ func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest
 
 	// Expand
 	m := map[string]interface{}{}
-	if !plan.String.Null {
-		m["string"] = plan.String.Value
+	if !plan.String.IsNull() {
+		m["string"] = plan.String.ValueString()
 	}
-	if !plan.Int64.Null {
-		m["int64"] = plan.Int64.Value
+	if !plan.Int64.IsNull() {
+		m["int64"] = plan.Int64.ValueInt64()
 	}
-	if !plan.Float64.Null {
-		m["float64"] = plan.Float64.Value
+	if !plan.Float64.IsNull() {
+		m["float64"] = plan.Float64.ValueFloat64()
 	}
-	if !plan.Number.Null {
-		m["number"] = plan.Number.Value.String()
+	if !plan.Number.IsNull() {
+		m["number"], _ = plan.Number.ValueBigFloat().Float64()
 	}
-	if !plan.Bool.Null {
-		m["bool"] = plan.Bool.Value
+	if !plan.Bool.IsNull() {
+		m["bool"] = plan.Bool.ValueBool()
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -249,14 +250,14 @@ func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest
 		return
 	}
 
-	var state foo
+	var state fooData
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
 
-	if err := r.p.client.Update(state.ID.Value, b); err != nil {
+	if err := r.p.client.Update(state.ID.ValueString(), b); err != nil {
 		resp.Diagnostics.AddError(
 			"Update failure",
 			fmt.Sprintf("Sending update request: %v", err),
@@ -264,17 +265,17 @@ func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest
 		return
 	}
 
-	rreq := tfsdk.ReadResourceRequest{
+	rreq := resource.ReadRequest{
 		State:        resp.State,
 		ProviderMeta: req.ProviderMeta,
 	}
-	rresp := tfsdk.ReadResourceResponse{
+	rresp := resource.ReadResponse{
 		State:       resp.State,
 		Diagnostics: resp.Diagnostics,
 	}
 	r.Read(ctx, rreq, &rresp)
 
-	*resp = tfsdk.UpdateResourceResponse{
+	*resp = resource.UpdateResponse{
 		State:       rresp.State,
 		Diagnostics: rresp.Diagnostics,
 	}
@@ -282,15 +283,15 @@ func (r resourceFoo) Update(ctx context.Context, req tfsdk.UpdateResourceRequest
 
 // Delete is called when the provider must delete the resource. Config
 // values may be read from the DeleteResourceRequest.
-func (r resourceFoo) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
-	var state foo
+func (r resourceFoo) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state fooData
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
 
-	if err := r.p.client.Delete(state.ID.Value); err != nil {
+	if err := r.p.client.Delete(state.ID.ValueString()); err != nil {
 		if err == client.ErrNotFound {
 			resp.State.RemoveResource(ctx)
 			return
@@ -312,6 +313,6 @@ func (r resourceFoo) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest
 //
 // If setting an attribute with the import identifier, it is recommended
 // to use the ResourceImportStatePassthroughID() call in this method.
-func (r resourceFoo) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
+func (r resourceFoo) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

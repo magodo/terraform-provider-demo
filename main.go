@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/magodo/terraform-provider-demo/demo"
 )
 
@@ -16,12 +16,12 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	serveOpts := tfsdk.ServeOpts{
-		Debug: debug,
-		Name:  "registry.terraform.io/magodo/demo",
+	serveOpts := providerserver.ServeOpts{
+		Debug:   debug,
+		Address: "registry.terraform.io/magodo/demo",
 	}
 
-	err := tfsdk.Serve(ctx, demo.New, serveOpts)
+	err := providerserver.Serve(ctx, demo.New, serveOpts)
 
 	if err != nil {
 		log.Fatalf("Error serving provider: %s", err)

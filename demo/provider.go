@@ -3,19 +3,24 @@ package demo
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/magodo/terraform-provider-demo/client"
 )
 
-type provider struct {
+type Provider struct {
 	client client.Client
 }
 
+var _ provider.Provider = &Provider{}
+
 type providerData struct {
-	FileSystem *filesystemData `tfsdk:"filesystem"`
-	JSONServer *jsonserverData `tfsdk:"jsonserver"`
+	FileSystem types.Object `tfsdk:"filesystem"`
+	JSONServer types.Object `tfsdk:"jsonserver"`
 }
 
 type filesystemData struct {
@@ -26,60 +31,62 @@ type jsonserverData struct {
 	URL types.String `tfsdk:"url"`
 }
 
-func New() tfsdk.Provider {
-	return &provider{}
+func New() provider.Provider {
+	return &Provider{}
 }
 
-func (p *provider) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+func (*Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "demo"
+}
+
+func (p *Provider) Schema(_ context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description:         "The schema of the magodo/terraform-provider-demo provider",
 		MarkdownDescription: "The schema of the `magodo/terraform-provider-demo` provider",
-		Attributes: map[string]tfsdk.Attribute{
-			"filesystem": {
-				Attributes: tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
-					"workdir": {
-						Type:                types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"filesystem": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"workdir": schema.StringAttribute{
 						Description:         "The directory to store the json files",
 						MarkdownDescription: "The directory to store the json files",
 						Required:            true,
 					},
-				}),
+				},
 				Description:         "Using the filesystem as the backend service",
 				MarkdownDescription: "Using the filesystem as the backend service",
-				Optional:            true,
 			},
-			"jsonserver": {
-				Attributes: tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
-					"url": {
-						Type:                types.StringType,
+			"jsonserver": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
 						Description:         "The URL to the json-server",
 						MarkdownDescription: "The URL to the json-server",
 						Required:            true,
 					},
-				}),
+				},
 				Description:         "Using the json-server as the backend service",
 				MarkdownDescription: "Using the [json-server](https://github.com/typicode/json-server) as the backend service",
-				Optional:            true,
 			},
 		},
-	}, nil
+	}
 }
 
-func (p *provider) ValidateConfig(ctx context.Context, req tfsdk.ValidateProviderConfigRequest, resp *tfsdk.ValidateProviderConfigResponse) {
+func (p *Provider) ValidateConfig(ctx context.Context, req provider.ValidateConfigRequest, resp *provider.ValidateConfigResponse) {
 	var config providerData
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
-	if config.FileSystem == nil && config.JSONServer == nil {
+	if config.FileSystem.IsNull() && config.JSONServer.IsNull() {
 		resp.Diagnostics.AddError(
 			"Invalid configuration",
 			`None of "filesystem" and "jsonserver" is specified`,
 		)
 		return
 	}
-	if config.FileSystem != nil && config.JSONServer != nil {
+	if !config.FileSystem.IsNull() && !config.JSONServer.IsNull() {
 		resp.Diagnostics.AddError(
 			"Invalid configuration",
 			`Only one of "filesystem" and "jsonserver" can be specified`,
@@ -89,7 +96,7 @@ func (p *provider) ValidateConfig(ctx context.Context, req tfsdk.ValidateProvide
 	return
 }
 
-func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
+func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var config providerData
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -98,8 +105,14 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	}
 
 	switch {
-	case config.FileSystem != nil:
-		client, err := client.NewFsClient(config.FileSystem.Workdir.Value)
+	case !config.FileSystem.IsNull():
+		var fs filesystemData
+		diags := config.FileSystem.As(ctx, &fs, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		client, err := client.NewFsClient(fs.Workdir.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to new filesystem client",
@@ -107,8 +120,14 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 			)
 		}
 		p.client = client
-	case config.JSONServer != nil:
-		client, err := client.NewJSONServerClient(config.JSONServer.URL.Value)
+	case !config.JSONServer.IsNull():
+		var jsonserver jsonserverData
+		diags := config.FileSystem.As(ctx, &jsonserver, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		client, err := client.NewJSONServerClient(jsonserver.URL.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Failed to new jsonserver client",
@@ -117,16 +136,18 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		}
 		p.client = client
 	}
+
+	resp.ResourceData = p
 }
 
-func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
-	return map[string]tfsdk.ResourceType{
-		"demo_foo": resourceFooType{},
-	}, nil
+func (*Provider) DataSources(context.Context) []func() datasource.DataSource {
+	return nil
 }
 
-// GetDataSources returns a map of the data source types this provider
-// supports.
-func (p *provider) GetDataSources(_ context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
-	return map[string]tfsdk.DataSourceType{}, nil
+func (*Provider) Resources(context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		func() resource.Resource {
+			return &resourceFoo{}
+		},
+	}
 }
