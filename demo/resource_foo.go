@@ -33,6 +33,7 @@ type fooData struct {
 
 type nestedData struct {
 	Name types.String `tfsdk:"name"`
+	Age  types.Int64  `tfsdk:"age"`
 }
 
 var _ resource.Resource = resourceFoo{}
@@ -77,6 +78,9 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 						"name": schema.StringAttribute{
 							Optional: true,
 						},
+						"age": schema.Int64Attribute{
+							Optional: true,
+						},
 					},
 				},
 			},
@@ -84,6 +88,9 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
+							Optional: true,
+						},
+						"age": schema.Int64Attribute{
 							Optional: true,
 						},
 					},
@@ -179,7 +186,8 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 			Float64:         types.Float64Null(),
 			Number:          types.NumberNull(),
 			Bool:            types.BoolNull(),
-			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}),
+			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
+			SetNestedBlock:  types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 		},
 	)
 	resp.Diagnostics.Append(diags...)
@@ -252,10 +260,10 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		state.Bool = types.BoolValue(v.(bool))
 	}
 	if v, ok := m["list_nested_block"]; ok {
-		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}, flattenNestedObject(v.([]interface{})))
+		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}, flattenNestedObject(v.([]interface{})))
 	}
 	if v, ok := m["set_nested_block"]; ok {
-		state.SetNestedBlock = types.SetValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}, flattenNestedObject(v.([]interface{})))
+		state.SetNestedBlock = types.SetValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}, flattenNestedObject(v.([]interface{})))
 	}
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -395,6 +403,9 @@ func expandNestedObject(l []nestedData) []interface{} {
 		if !d.Name.IsNull() {
 			m["name"] = d.Name.ValueString()
 		}
+		if !d.Age.IsNull() {
+			m["age"] = d.Age.ValueInt64()
+		}
 		output = append(output, m)
 	}
 	return output
@@ -406,14 +417,24 @@ func flattenNestedObject(l []interface{}) []attr.Value {
 	for _, v := range l {
 		m := v.(map[string]interface{})
 
-		var name string
+		name := types.StringNull()
 		if v, ok := m["name"]; ok {
-			name = v.(string)
+			name = types.StringValue(v.(string))
+		}
+		age := types.Int64Null()
+		if v, ok := m["age"]; ok {
+			age = types.Int64Value(int64(v.(float64)))
 		}
 
 		obj, diags := types.ObjectValue(
-			map[string]attr.Type{"name": types.StringType},
-			map[string]attr.Value{"name": types.StringValue(name)},
+			map[string]attr.Type{
+				"name": types.StringType,
+				"age":  types.Int64Type,
+			},
+			map[string]attr.Value{
+				"name": name,
+				"age":  age,
+			},
 		)
 		if diags.HasError() {
 			panic(fmt.Sprintf("%v", diags.Errors()))
