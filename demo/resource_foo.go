@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -20,12 +21,18 @@ type resourceFoo struct {
 }
 
 type fooData struct {
-	ID      types.String  `tfsdk:"id"   json:"id,omitempty"`
-	String  types.String  `tfsdk:"string" json:"string,omitempty"`
-	Int64   types.Int64   `tfsdk:"int64"  json:"int64,omitempty"`
-	Float64 types.Float64 `tfsdk:"float64" json:"float64,omitempty"`
-	Number  types.Number  `tfsdk:"number" json:"number,omitempty"`
-	Bool    types.Bool    `tfsdk:"bool" json:"bool,omitempty"`
+	ID              types.String  `tfsdk:"id"`
+	String          types.String  `tfsdk:"string"`
+	Int64           types.Int64   `tfsdk:"int64"`
+	Float64         types.Float64 `tfsdk:"float64"`
+	Number          types.Number  `tfsdk:"number"`
+	Bool            types.Bool    `tfsdk:"bool"`
+	ListNestedBlock types.List    `tfsdk:"list_nested_block"`
+	SetNestedBlock  types.Set     `tfsdk:"set_nested_block"`
+}
+
+type nestedData struct {
+	Name types.String `tfsdk:"name"`
 }
 
 var _ resource.Resource = resourceFoo{}
@@ -61,6 +68,26 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"bool": schema.BoolAttribute{
 				Optional: true,
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"list_nested_block": schema.ListNestedBlock{
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Optional: true,
+						},
+					},
+				},
+			},
+			"set_nested_block": schema.SetNestedBlock{
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Optional: true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -110,6 +137,24 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 	if !plan.Bool.IsNull() {
 		m["bool"] = plan.Bool.ValueBool()
 	}
+	if !plan.ListNestedBlock.IsNull() {
+		var blks []nestedData
+		diags := plan.ListNestedBlock.ElementsAs(ctx, &blks, false)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		m["list_nested_block"] = expandNestedObject(blks)
+	}
+	if !plan.SetNestedBlock.IsNull() {
+		var blks []nestedData
+		diags := plan.SetNestedBlock.ElementsAs(ctx, &blks, false)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		m["set_nested_block"] = expandNestedObject(blks)
+	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -128,12 +173,13 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 	}
 	diags = resp.State.Set(ctx,
 		fooData{
-			ID:      types.StringValue(id),
-			String:  types.StringNull(),
-			Int64:   types.Int64Null(),
-			Float64: types.Float64Null(),
-			Number:  types.NumberNull(),
-			Bool:    types.BoolNull(),
+			ID:              types.StringValue(id),
+			String:          types.StringNull(),
+			Int64:           types.Int64Null(),
+			Float64:         types.Float64Null(),
+			Number:          types.NumberNull(),
+			Bool:            types.BoolNull(),
+			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}),
 		},
 	)
 	resp.Diagnostics.Append(diags...)
@@ -205,6 +251,12 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	if v, ok := m["bool"]; ok {
 		state.Bool = types.BoolValue(v.(bool))
 	}
+	if v, ok := m["list_nested_block"]; ok {
+		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}, flattenNestedObject(v.([]interface{})))
+	}
+	if v, ok := m["set_nested_block"]; ok {
+		state.SetNestedBlock = types.SetValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType}}, flattenNestedObject(v.([]interface{})))
+	}
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
@@ -240,6 +292,24 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 	}
 	if !plan.Bool.IsNull() {
 		m["bool"] = plan.Bool.ValueBool()
+	}
+	if !plan.ListNestedBlock.IsNull() {
+		var blks []nestedData
+		diags := plan.ListNestedBlock.ElementsAs(ctx, &blks, false)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		m["list_nested_block"] = expandNestedObject(blks)
+	}
+	if !plan.SetNestedBlock.IsNull() {
+		var blks []nestedData
+		diags := plan.SetNestedBlock.ElementsAs(ctx, &blks, false)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		m["set_nested_block"] = expandNestedObject(blks)
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -315,4 +385,42 @@ func (r resourceFoo) Delete(ctx context.Context, req resource.DeleteRequest, res
 // to use the ResourceImportStatePassthroughID() call in this method.
 func (r resourceFoo) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func expandNestedObject(l []nestedData) []interface{} {
+	var output []interface{}
+
+	for _, d := range l {
+		m := map[string]interface{}{}
+		if !d.Name.IsNull() {
+			m["name"] = d.Name.ValueString()
+		}
+		output = append(output, m)
+	}
+	return output
+}
+
+func flattenNestedObject(l []interface{}) []attr.Value {
+	var elements []attr.Value
+
+	for _, v := range l {
+		m := v.(map[string]interface{})
+
+		var name string
+		if v, ok := m["name"]; ok {
+			name = v.(string)
+		}
+
+		obj, diags := types.ObjectValue(
+			map[string]attr.Type{"name": types.StringType},
+			map[string]attr.Value{"name": types.StringValue(name)},
+		)
+		if diags.HasError() {
+			panic(fmt.Sprintf("%v", diags.Errors()))
+		}
+
+		elements = append(elements, obj)
+	}
+
+	return elements
 }
