@@ -10,6 +10,9 @@ func Provider() *schema.Provider {
 			"demo_resource_foo": resourceFoo(),
 			"demo_resource_bar": resourceBar(),
 		},
+		DataSourcesMap: map[string]*schema.Resource{
+			"demo_resource_foo": dataSourceFoo(),
+		},
 		ConfigureFunc: func(d *schema.ResourceData) (interface{}, error) {
 			return &client{
 				&ClientFoo{},
