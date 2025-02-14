@@ -23,6 +23,7 @@ type resourceFoo struct {
 type fooData struct {
 	ID              types.String  `tfsdk:"id"`
 	String          types.String  `tfsdk:"string"`
+	StringWo        types.String  `tfsdk:"string_wo"`
 	Int64           types.Int64   `tfsdk:"int64"`
 	Float64         types.Float64 `tfsdk:"float64"`
 	Number          types.Number  `tfsdk:"number"`
@@ -57,6 +58,10 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"string": schema.StringAttribute{
 				Optional: true,
+			},
+			"string_wo": schema.StringAttribute{
+				WriteOnly: true,
+				Optional:  true,
 			},
 			"int64": schema.Int64Attribute{
 				Optional: true,
@@ -115,6 +120,39 @@ func (r *resourceFoo) Configure(ctx context.Context, req resource.ConfigureReque
 	r.p = provider
 }
 
+func (r *resourceFoo) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	switch {
+	case req.Plan.Raw.IsNull():
+		// Destroy
+	case req.State.Raw.IsNull():
+		// Create
+	default:
+		// Update
+		// var state, config, plan fooData
+
+		// if diags := req.State.Get(ctx, &state); diags.HasError() {
+		// 	resp.Diagnostics = diags
+		// 	return
+		// }
+
+		// if diags := req.Config.Get(ctx, &config); diags.HasError() {
+		// 	resp.Diagnostics = diags
+		// 	return
+		// }
+
+		// if diags := req.Plan.Get(ctx, &plan); diags.HasError() {
+		// 	resp.Diagnostics = diags
+		// 	return
+		// }
+
+		// tflog.Warn(ctx, fmt.Sprintf("Config: %q (null: %t, unknwon: %t); State: %q (null: %t, unknwon: %t); Plan: %q (null: %t, unknwon: %t)",
+		// 	config.StringWo.ValueString(), config.StringWo.IsNull(), config.StringWo.IsUnknown(),
+		// 	state.StringWo.ValueString(), state.StringWo.IsNull(), state.StringWo.IsUnknown(),
+		// 	plan.StringWo.ValueString(), plan.StringWo.IsNull(), plan.StringWo.IsUnknown(),
+		// ))
+	}
+}
+
 // Create is called when the provider must create a new resource. Config
 // and planned state values should be read from the
 // CreateResourceRequest and new state values set on the
@@ -131,6 +169,9 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 	m := map[string]interface{}{}
 	if !plan.String.IsNull() {
 		m["string"] = plan.String.ValueString()
+	}
+	if !plan.StringWo.IsNull() {
+		m["string_wo"] = plan.StringWo.ValueString()
 	}
 	if !plan.Int64.IsNull() {
 		m["int64"] = plan.Int64.ValueInt64()
@@ -247,6 +288,9 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	if v, ok := m["string"]; ok {
 		state.String = types.StringValue(v.(string))
 	}
+	if v, ok := m["string_wo"]; ok {
+		state.StringWo = types.StringValue(v.(string))
+	}
 	if v, ok := m["int64"]; ok {
 		state.Int64 = types.Int64Value(int64(v.(float64)))
 	}
@@ -288,6 +332,9 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 	m := map[string]interface{}{}
 	if !plan.String.IsNull() {
 		m["string"] = plan.String.ValueString()
+	}
+	if !plan.StringWo.IsNull() {
+		m["string_wo"] = plan.StringWo.ValueString()
 	}
 	if !plan.Int64.IsNull() {
 		m["int64"] = plan.Int64.ValueInt64()
