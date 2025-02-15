@@ -165,13 +165,20 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
+	var config fooData
+	diags = req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if diags.HasError() {
+		return
+	}
+
 	// Expand
 	m := map[string]interface{}{}
 	if !plan.String.IsNull() {
 		m["string"] = plan.String.ValueString()
 	}
-	if !plan.StringWo.IsNull() {
-		m["string_wo"] = plan.StringWo.ValueString()
+	if !config.StringWo.IsNull() {
+		m["string_wo"] = config.StringWo.ValueString()
 	}
 	if !plan.Int64.IsNull() {
 		m["int64"] = plan.Int64.ValueInt64()
@@ -328,13 +335,20 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 		return
 	}
 
+	var config fooData
+	diags = req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if diags.HasError() {
+		return
+	}
+
 	// Expand
 	m := map[string]interface{}{}
 	if !plan.String.IsNull() {
 		m["string"] = plan.String.ValueString()
 	}
-	if !plan.StringWo.IsNull() {
-		m["string_wo"] = plan.StringWo.ValueString()
+	if !config.StringWo.IsNull() {
+		m["string_wo"] = config.StringWo.ValueString()
 	}
 	if !plan.Int64.IsNull() {
 		m["int64"] = plan.Int64.ValueInt64()
