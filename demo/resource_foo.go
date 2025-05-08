@@ -30,6 +30,8 @@ type fooData struct {
 	Bool            types.Bool    `tfsdk:"bool"`
 	ListNestedBlock types.List    `tfsdk:"list_nested_block"`
 	SetNestedBlock  types.Set     `tfsdk:"set_nested_block"`
+
+	StringOut types.String `tfsdk:"string_out"`
 }
 
 type nestedData struct {
@@ -74,6 +76,9 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"bool": schema.BoolAttribute{
 				Optional: true,
+			},
+			"string_out": schema.StringAttribute{
+				Computed: true,
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -294,6 +299,7 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	// Flatten
 	if v, ok := m["string"]; ok {
 		state.String = types.StringValue(v.(string))
+		state.StringOut = types.StringValue(v.(string))
 	}
 	if v, ok := m["string_wo"]; ok {
 		state.StringWo = types.StringValue(v.(string))
