@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/magodo/terraform-provider-demo/client"
 	"github.com/magodo/terraform-provider-demo/demo"
 )
@@ -21,17 +21,8 @@ func Providers() map[string]func() (tfprotov6.ProviderServer, error) {
 func ProviderConfig() string {
 	envFsWorkdir := os.Getenv(EnvFsWorkdir)
 	envJsUrl := os.Getenv(EnvJsUrl)
-	tfconfig := `
-terraform {
-  required_providers {
-    demo = {
-      source = "magodo/demo"
-    }
-  }
-}
-`
 	if envFsWorkdir != "" {
-		return tfconfig + fmt.Sprintf(`
+		return fmt.Sprintf(`
 provider "demo" {
   filesystem = {
     workdir = "%s"
@@ -39,7 +30,7 @@ provider "demo" {
 }
 `, envFsWorkdir)
 	}
-	return tfconfig + fmt.Sprintf(`
+	return fmt.Sprintf(`
 provider "demo" {
   jsonserver = {
     url = "%s"

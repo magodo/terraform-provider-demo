@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/magodo/terraform-plugin-framework-docs/fwdtypes"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -13,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/magodo/terraform-provider-demo/client"
 )
 
@@ -28,10 +31,16 @@ type fooData struct {
 	Float64         types.Float64 `tfsdk:"float64"`
 	Number          types.Number  `tfsdk:"number"`
 	Bool            types.Bool    `tfsdk:"bool"`
+	Object          types.Object  `tfsdk:"object"`
 	ListNestedBlock types.List    `tfsdk:"list_nested_block"`
 	SetNestedBlock  types.Set     `tfsdk:"set_nested_block"`
 
 	StringOut types.String `tfsdk:"string_out"`
+}
+
+type fooObject struct {
+	Bool   types.Bool   `tfsdk:"bool"`
+	String types.String `tfsdk:"string"`
 }
 
 type nestedData struct {
@@ -76,6 +85,13 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"bool": schema.BoolAttribute{
 				Optional: true,
+			},
+			"object": schema.ObjectAttribute{
+				Optional: true,
+				AttributeTypes: map[string]attr.Type{
+					"bool":   fwdtypes.NewBoolType(""),
+					"string": fwdtypes.NewStringType(""),
+				},
 			},
 			"string_out": schema.StringAttribute{
 				Computed: true,
@@ -197,6 +213,23 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 	if !plan.Bool.IsNull() {
 		m["bool"] = plan.Bool.ValueBool()
 	}
+	if !plan.Object.IsNull() {
+		var obj fooObject
+		diags := plan.Object.As(ctx, &obj, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+
+		mm := map[string]any{}
+		if !obj.Bool.IsNull() {
+			m["bool"] = obj.Bool.ValueBool()
+		}
+		if !obj.String.IsNull() {
+			m["string"] = obj.String.ValueString()
+		}
+		m["object"] = mm
+	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
 		diags := plan.ListNestedBlock.ElementsAs(ctx, &blks, false)
@@ -233,12 +266,16 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 	}
 	diags = resp.State.Set(ctx,
 		fooData{
-			ID:              types.StringValue(id),
-			String:          types.StringNull(),
-			Int64:           types.Int64Null(),
-			Float64:         types.Float64Null(),
-			Number:          types.NumberNull(),
-			Bool:            types.BoolNull(),
+			ID:      types.StringValue(id),
+			String:  types.StringNull(),
+			Int64:   types.Int64Null(),
+			Float64: types.Float64Null(),
+			Number:  types.NumberNull(),
+			Bool:    types.BoolNull(),
+			Object: types.ObjectNull(map[string]attr.Type{
+				"bool":   types.BoolType,
+				"string": types.StringType,
+			}),
 			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 			SetNestedBlock:  types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 		},
@@ -316,6 +353,41 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	if v, ok := m["bool"]; ok {
 		state.Bool = types.BoolValue(v.(bool))
 	}
+	if v, ok := m["object"]; ok {
+		b, err := json.Marshal(v)
+		if err != nil {
+			resp.Diagnostics.AddError("Read failed to marshal `object`", err.Error())
+			return
+		}
+		var mm map[string]any
+		if err := json.Unmarshal(b, &mm); err != nil {
+			resp.Diagnostics.AddError("Read failed to unmarshal `object`", err.Error())
+			return
+		}
+
+		fields := map[string]attr.Value{}
+
+		{
+			field := basetypes.NewBoolNull()
+			if vv, ok := mm["bool"]; ok {
+				field = basetypes.NewBoolValue(vv.(bool))
+			}
+			fields["bool"] = field
+			{
+				field := basetypes.NewStringNull()
+				if vv, ok := mm["string"]; ok {
+					field = basetypes.NewStringValue(vv.(string))
+				}
+				fields["string"] = field
+			}
+		}
+
+		state.Object, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType}, fields)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+	}
 	if v, ok := m["list_nested_block"]; ok {
 		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}, flattenNestedObject(v.([]interface{})))
 	}
@@ -367,6 +439,23 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 	}
 	if !plan.Bool.IsNull() {
 		m["bool"] = plan.Bool.ValueBool()
+	}
+	if !plan.Object.IsNull() {
+		var obj fooObject
+		diags := plan.Object.As(ctx, &obj, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+
+		mm := map[string]any{}
+		if !obj.Bool.IsNull() {
+			m["bool"] = obj.Bool.ValueBool()
+		}
+		if !obj.String.IsNull() {
+			m["string"] = obj.String.ValueString()
+		}
+		m["object"] = mm
 	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
