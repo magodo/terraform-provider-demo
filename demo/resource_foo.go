@@ -8,12 +8,15 @@ import (
 
 	"github.com/magodo/terraform-plugin-framework-docs/fwdtypes"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/magodo/terraform-provider-demo/client"
@@ -24,16 +27,17 @@ type resourceFoo struct {
 }
 
 type fooData struct {
-	ID              types.String  `tfsdk:"id"`
-	String          types.String  `tfsdk:"string"`
-	StringWo        types.String  `tfsdk:"string_wo"`
-	Int64           types.Int64   `tfsdk:"int64"`
-	Float64         types.Float64 `tfsdk:"float64"`
-	Number          types.Number  `tfsdk:"number"`
-	Bool            types.Bool    `tfsdk:"bool"`
-	Object          types.Object  `tfsdk:"object"`
-	ListNestedBlock types.List    `tfsdk:"list_nested_block"`
-	SetNestedBlock  types.Set     `tfsdk:"set_nested_block"`
+	ID                    types.String  `tfsdk:"id"`
+	String                types.String  `tfsdk:"string"`
+	StringWo              types.String  `tfsdk:"string_wo"`
+	Int64                 types.Int64   `tfsdk:"int64"`
+	Float64               types.Float64 `tfsdk:"float64"`
+	Number                types.Number  `tfsdk:"number"`
+	Bool                  types.Bool    `tfsdk:"bool"`
+	Object                types.Object  `tfsdk:"object"`
+	SingleNestedAttribute types.Object  `tfsdk:"single_nested_attribute"`
+	ListNestedBlock       types.List    `tfsdk:"list_nested_block"`
+	SetNestedBlock        types.Set     `tfsdk:"set_nested_block"`
 
 	StringOut types.String `tfsdk:"string_out"`
 }
@@ -91,6 +95,23 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 				AttributeTypes: map[string]attr.Type{
 					"bool":   fwdtypes.NewBoolType(""),
 					"string": fwdtypes.NewStringType(""),
+				},
+			},
+			"single_nested_attribute": schema.SingleNestedAttribute{
+				Optional: true,
+				Attributes: map[string]schema.Attribute{
+					"bool": schema.BoolAttribute{
+						Optional: true,
+						Validators: []validator.Bool{
+							boolvalidator.AtLeastOneOf(path.MatchRelative().AtParent().AtName("string")),
+						},
+					},
+					"string": schema.StringAttribute{
+						Optional: true,
+						Validators: []validator.String{
+							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("bool")),
+						},
+					},
 				},
 			},
 			"string_out": schema.StringAttribute{
@@ -230,6 +251,22 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 		}
 		m["object"] = mm
 	}
+	if !plan.SingleNestedAttribute.IsNull() {
+		var obj fooObject
+		diags := plan.SingleNestedAttribute.As(ctx, &obj, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		mm := map[string]any{}
+		if !obj.Bool.IsNull() {
+			m["bool"] = obj.Bool.ValueBool()
+		}
+		if !obj.String.IsNull() {
+			m["string"] = obj.String.ValueString()
+		}
+		m["single_nested_attribute"] = mm
+	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
 		diags := plan.ListNestedBlock.ElementsAs(ctx, &blks, false)
@@ -272,6 +309,10 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 			Float64: types.Float64Null(),
 			Number:  types.NumberNull(),
 			Bool:    types.BoolNull(),
+			SingleNestedAttribute: types.ObjectNull(map[string]attr.Type{
+				"bool":   types.BoolType,
+				"string": types.StringType,
+			}),
 			Object: types.ObjectNull(map[string]attr.Type{
 				"bool":   types.BoolType,
 				"string": types.StringType,
@@ -388,6 +429,41 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 			return
 		}
 	}
+	if v, ok := m["single_nested_attribute"]; ok {
+		b, err := json.Marshal(v)
+		if err != nil {
+			resp.Diagnostics.AddError("Read failed to marshal single_nested_attribute`", err.Error())
+			return
+		}
+		var mm map[string]any
+		if err := json.Unmarshal(b, &mm); err != nil {
+			resp.Diagnostics.AddError("Read failed to unmarshal `single_nested_attribute`", err.Error())
+			return
+		}
+
+		fields := map[string]attr.Value{}
+
+		{
+			field := basetypes.NewBoolNull()
+			if vv, ok := mm["bool"]; ok {
+				field = basetypes.NewBoolValue(vv.(bool))
+			}
+			fields["bool"] = field
+			{
+				field := basetypes.NewStringNull()
+				if vv, ok := mm["string"]; ok {
+					field = basetypes.NewStringValue(vv.(string))
+				}
+				fields["string"] = field
+			}
+		}
+
+		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType}, fields)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+	}
 	if v, ok := m["list_nested_block"]; ok {
 		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}, flattenNestedObject(v.([]interface{})))
 	}
@@ -456,6 +532,22 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 			m["string"] = obj.String.ValueString()
 		}
 		m["object"] = mm
+	}
+	if !plan.SingleNestedAttribute.IsNull() {
+		var obj fooObject
+		diags := plan.SingleNestedAttribute.As(ctx, &obj, basetypes.ObjectAsOptions{})
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+		mm := map[string]any{}
+		if !obj.Bool.IsNull() {
+			m["bool"] = obj.Bool.ValueBool()
+		}
+		if !obj.String.IsNull() {
+			m["string"] = obj.String.ValueString()
+		}
+		m["single_nested_attribute"] = mm
 	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
