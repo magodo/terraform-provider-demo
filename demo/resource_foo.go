@@ -423,7 +423,7 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 			}
 		}
 
-		state.Object, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType}, fields)
+		state.Object, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, fields)
 		resp.Diagnostics.Append(diags...)
 		if diags.HasError() {
 			return
@@ -458,12 +458,13 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 			}
 		}
 
-		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType}, fields)
+		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, fields)
 		resp.Diagnostics.Append(diags...)
 		if diags.HasError() {
 			return
 		}
 	}
+
 	if v, ok := m["list_nested_block"]; ok {
 		state.ListNestedBlock = types.ListValueMust(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}, flattenNestedObject(v.([]interface{})))
 	}
