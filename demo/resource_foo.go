@@ -99,6 +99,7 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"single_nested_attribute": schema.SingleNestedAttribute{
 				Optional: true,
+				Computed: true,
 				Attributes: map[string]schema.Attribute{
 					"bool": schema.BoolAttribute{
 						Optional: true,
@@ -251,7 +252,7 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 		}
 		m["object"] = mm
 	}
-	if !plan.SingleNestedAttribute.IsNull() {
+	if !plan.SingleNestedAttribute.IsNull() && !plan.SingleNestedAttribute.IsUnknown() {
 		var obj fooObject
 		diags := plan.SingleNestedAttribute.As(ctx, &obj, basetypes.ObjectAsOptions{})
 		resp.Diagnostics.Append(diags...)
@@ -459,6 +460,16 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		}
 
 		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, fields)
+		resp.Diagnostics.Append(diags...)
+		if diags.HasError() {
+			return
+		}
+	} else {
+		// Simulating the API returns an object when not specified in the request.
+		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, map[string]attr.Value{
+			"bool":   basetypes.NewBoolValue(false),
+			"string": basetypes.NewStringValue(""),
+		})
 		resp.Diagnostics.Append(diags...)
 		if diags.HasError() {
 			return
