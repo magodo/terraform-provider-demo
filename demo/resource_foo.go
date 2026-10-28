@@ -261,10 +261,10 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 		}
 		mm := map[string]any{}
 		if !obj.Bool.IsNull() {
-			m["bool"] = obj.Bool.ValueBool()
+			mm["bool"] = obj.Bool.ValueBool()
 		}
 		if !obj.String.IsNull() {
-			m["string"] = obj.String.ValueString()
+			mm["string"] = obj.String.ValueString()
 		}
 		m["single_nested_attribute"] = mm
 	}
