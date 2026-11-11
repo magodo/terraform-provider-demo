@@ -103,12 +103,14 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 				Attributes: map[string]schema.Attribute{
 					"bool": schema.BoolAttribute{
 						Optional: true,
+						Computed: true,
 						Validators: []validator.Bool{
 							boolvalidator.AtLeastOneOf(path.MatchRelative().AtParent().AtName("string")),
 						},
 					},
 					"string": schema.StringAttribute{
 						Optional: true,
+						Computed: true,
 						Validators: []validator.String{
 							stringvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName("bool")),
 						},
