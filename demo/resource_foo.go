@@ -35,6 +35,7 @@ type fooData struct {
 	Number                types.Number  `tfsdk:"number"`
 	Bool                  types.Bool    `tfsdk:"bool"`
 	Object                types.Object  `tfsdk:"object"`
+	MapObject             types.Map     `tfsdk:"map_object"`
 	SingleNestedAttribute types.Object  `tfsdk:"single_nested_attribute"`
 	ListNestedBlock       types.List    `tfsdk:"list_nested_block"`
 	SetNestedBlock        types.Set     `tfsdk:"set_nested_block"`
@@ -95,6 +96,19 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 				AttributeTypes: map[string]attr.Type{
 					"bool":   fwdtypes.NewBoolType(""),
 					"string": fwdtypes.NewStringType(""),
+				},
+			},
+			"map_object": schema.MapNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"bool": schema.BoolAttribute{
+							Computed: true,
+						},
+						"string": schema.StringAttribute{
+							Computed: true,
+						},
+					},
 				},
 			},
 			"single_nested_attribute": schema.SingleNestedAttribute{
@@ -270,6 +284,13 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 		}
 		m["single_nested_attribute"] = mm
 	}
+	if !plan.MapObject.IsNull() {
+		mm := map[string]any{}
+		for k := range plan.MapObject.Elements() {
+			mm[k] = struct{}{}
+		}
+		m["map_object"] = mm
+	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
 		diags := plan.ListNestedBlock.ElementsAs(ctx, &blks, false)
@@ -320,6 +341,10 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 				"bool":   types.BoolType,
 				"string": types.StringType,
 			}),
+			MapObject: types.MapNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+				"bool":   types.BoolType,
+				"string": types.StringType,
+			}}),
 			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 			SetNestedBlock:  types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 		},
@@ -461,21 +486,42 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 			}
 		}
 
-		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, fields)
-		resp.Diagnostics.Append(diags...)
-		if diags.HasError() {
-			return
+		state.SingleNestedAttribute = basetypes.NewObjectValueMust(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, fields)
+	}
+
+	if mm, ok := m["map_object"]; ok {
+		mapObj := map[string]attr.Value{}
+		for k, obj := range mm.(map[string]any) {
+			fields := map[string]attr.Value{}
+			obj := obj.(map[string]any)
+
+			{
+				field := basetypes.NewBoolNull()
+				if vv, ok := obj["bool"]; ok {
+					field = basetypes.NewBoolValue(vv.(bool))
+				}
+				fields["bool"] = field
+			}
+
+			{
+				field := basetypes.NewStringNull()
+				if vv, ok := obj["string"]; ok {
+					field = basetypes.NewStringValue(vv.(string))
+				}
+				fields["string"] = field
+			}
+
+			mapObj[k] = basetypes.NewObjectValueMust(
+				map[string]attr.Type{"bool": types.BoolType, "string": types.StringType},
+				fields,
+			)
 		}
-	} else {
-		// Simulating the API returns an object when not specified in the request.
-		state.SingleNestedAttribute, diags = basetypes.NewObjectValue(map[string]attr.Type{"bool": types.BoolType, "string": types.StringType}, map[string]attr.Value{
-			"bool":   basetypes.NewBoolValue(false),
-			"string": basetypes.NewStringValue(""),
-		})
-		resp.Diagnostics.Append(diags...)
-		if diags.HasError() {
-			return
-		}
+		state.MapObject = basetypes.NewMapValueMust(
+			basetypes.ObjectType{
+				AttrTypes: map[string]attr.Type{"bool": types.BoolType, "string": types.StringType},
+			},
+			mapObj,
+		)
 	}
 
 	if v, ok := m["list_nested_block"]; ok {
@@ -547,7 +593,7 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 		}
 		m["object"] = mm
 	}
-	if !plan.SingleNestedAttribute.IsNull() {
+	if !plan.SingleNestedAttribute.IsNull() && !plan.SingleNestedAttribute.IsUnknown() {
 		var obj fooObject
 		diags := plan.SingleNestedAttribute.As(ctx, &obj, basetypes.ObjectAsOptions{})
 		resp.Diagnostics.Append(diags...)
@@ -562,6 +608,13 @@ func (r resourceFoo) Update(ctx context.Context, req resource.UpdateRequest, res
 			m["string"] = obj.String.ValueString()
 		}
 		m["single_nested_attribute"] = mm
+	}
+	if !plan.MapObject.IsNull() {
+		mm := map[string]any{}
+		for k := range plan.MapObject.Elements() {
+			mm[k] = struct{}{}
+		}
+		m["map_object"] = mm
 	}
 	if !plan.ListNestedBlock.IsNull() {
 		var blks []nestedData
