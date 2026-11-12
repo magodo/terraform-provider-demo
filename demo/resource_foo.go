@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/magodo/terraform-plugin-framework-docs/fwdtypes"
 
@@ -27,18 +28,18 @@ type resourceFoo struct {
 }
 
 type fooData struct {
-	ID                    types.String  `tfsdk:"id"`
-	String                types.String  `tfsdk:"string"`
-	StringWo              types.String  `tfsdk:"string_wo"`
-	Int64                 types.Int64   `tfsdk:"int64"`
-	Float64               types.Float64 `tfsdk:"float64"`
-	Number                types.Number  `tfsdk:"number"`
-	Bool                  types.Bool    `tfsdk:"bool"`
-	Object                types.Object  `tfsdk:"object"`
-	MapObject             types.Map     `tfsdk:"map_object"`
-	SingleNestedAttribute types.Object  `tfsdk:"single_nested_attribute"`
-	ListNestedBlock       types.List    `tfsdk:"list_nested_block"`
-	SetNestedBlock        types.Set     `tfsdk:"set_nested_block"`
+	ID                    types.String               `tfsdk:"id"`
+	String                types.String               `tfsdk:"string"`
+	StringWo              types.String               `tfsdk:"string_wo"`
+	Int64                 types.Int64                `tfsdk:"int64"`
+	Float64               types.Float64              `tfsdk:"float64"`
+	Number                types.Number               `tfsdk:"number"`
+	Bool                  types.Bool                 `tfsdk:"bool"`
+	Object                types.Object               `tfsdk:"object"`
+	MapObject             KeyCaseInsensitiveMapValue `tfsdk:"map_object"`
+	SingleNestedAttribute types.Object               `tfsdk:"single_nested_attribute"`
+	ListNestedBlock       types.List                 `tfsdk:"list_nested_block"`
+	SetNestedBlock        types.Set                  `tfsdk:"set_nested_block"`
 
 	StringOut types.String `tfsdk:"string_out"`
 }
@@ -100,6 +101,14 @@ func (resourceFoo) Schema(ctx context.Context, req resource.SchemaRequest, resp 
 			},
 			"map_object": schema.MapNestedAttribute{
 				Optional: true,
+				CustomType: KeyCaseInsensitiveMapType{
+					MapType: types.MapType{
+						ElemType: types.ObjectType{AttrTypes: map[string]attr.Type{
+							"bool":   types.BoolType,
+							"string": types.StringType,
+						}},
+					},
+				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"bool": schema.BoolAttribute{
@@ -341,10 +350,11 @@ func (r resourceFoo) Create(ctx context.Context, req resource.CreateRequest, res
 				"bool":   types.BoolType,
 				"string": types.StringType,
 			}),
-			MapObject: types.MapNull(types.ObjectType{AttrTypes: map[string]attr.Type{
-				"bool":   types.BoolType,
-				"string": types.StringType,
-			}}),
+			MapObject: KeyCaseInsensitiveMapValue{
+				MapValue: types.MapNull(types.ObjectType{AttrTypes: map[string]attr.Type{
+					"bool":   types.BoolType,
+					"string": types.StringType,
+				}})},
 			ListNestedBlock: types.ListNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 			SetNestedBlock:  types.SetNull(types.ObjectType{AttrTypes: map[string]attr.Type{"name": types.StringType, "age": types.Int64Type}}),
 		},
@@ -491,37 +501,25 @@ func (r resourceFoo) Read(ctx context.Context, req resource.ReadRequest, resp *r
 
 	if mm, ok := m["map_object"]; ok {
 		mapObj := map[string]attr.Value{}
-		for k, obj := range mm.(map[string]any) {
-			fields := map[string]attr.Value{}
-			obj := obj.(map[string]any)
-
-			{
-				field := basetypes.NewBoolNull()
-				if vv, ok := obj["bool"]; ok {
-					field = basetypes.NewBoolValue(vv.(bool))
-				}
-				fields["bool"] = field
+		for k := range mm.(map[string]any) {
+			// Hardcode the returned values
+			fields := map[string]attr.Value{
+				"bool":   types.BoolValue(true),
+				"string": types.StringValue("foobar"),
 			}
-
-			{
-				field := basetypes.NewStringNull()
-				if vv, ok := obj["string"]; ok {
-					field = basetypes.NewStringValue(vv.(string))
-				}
-				fields["string"] = field
-			}
-
-			mapObj[k] = basetypes.NewObjectValueMust(
+			mapObj[strings.ToUpper(k)] = basetypes.NewObjectValueMust(
 				map[string]attr.Type{"bool": types.BoolType, "string": types.StringType},
 				fields,
 			)
 		}
-		state.MapObject = basetypes.NewMapValueMust(
-			basetypes.ObjectType{
-				AttrTypes: map[string]attr.Type{"bool": types.BoolType, "string": types.StringType},
-			},
-			mapObj,
-		)
+		state.MapObject = KeyCaseInsensitiveMapValue{
+			MapValue: basetypes.NewMapValueMust(
+				basetypes.ObjectType{
+					AttrTypes: map[string]attr.Type{"bool": types.BoolType, "string": types.StringType},
+				},
+				mapObj,
+			),
+		}
 	}
 
 	if v, ok := m["list_nested_block"]; ok {
